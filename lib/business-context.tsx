@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
-
+import { jwtDecode } from 'jwt-decode';
 // ... (Definisi tipe Product dan Business tetap sama) ...
 export type Product = {
   id: string
@@ -21,8 +21,15 @@ export type Business = {
   products: Product[]
   phone: string | null
   isOpen: boolean // Status buka/tutup toko
+  // Asumsi ada owner:
+  owner?: { id: string; name: string; email: string } | null
 }
 
+type JwtPayload = {
+  id: string;
+  // Tambahkan field lain yang ada di payload token Anda
+  exp?: number;
+};
 
 // Tambahkan definisi untuk API utilities
 const BASE_URL_PRODUCTS = "/api/products"
@@ -68,7 +75,6 @@ export async function apiFetchBusinessById(businessId: string): Promise<Business
     console.error(`Error fetching business ID ${businessId}:`, error);
 
     // Kembalikan null atau lemparkan ulang error tergantung pada strategi penanganan error global Anda.
-    // Dalam konteks yang memanggil notFound(), mengembalikan null adalah pilihan yang baik.
     return null;
   }
 }
@@ -123,7 +129,8 @@ type BusinessContextType = {
 
   currentUserBusinessId: string | null
   setCurrentUserBusinessId: (id: string | null) => void
-  fetchBusinesses: () => Promise<void>
+  // Menerima userId opsional untuk filtering
+  fetchBusinesses: (userId?: string) => Promise<void>
   isContextLoading: boolean // Tambahkan loading state ke Context Type
 }
 
@@ -132,22 +139,71 @@ const BusinessContext = createContext<BusinessContextType | undefined>(undefined
 
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const [businesses, setBusinesses] = useState<Business[]>([])
+  // Note: currentUserBusinessId kemungkinan adalah Business ID, bukan User ID.
+  // Untuk filtering API, kita memerlukan User ID.
+  const [currentUserId, setCurrentUserId] = useState<string | null>("dummy-user-1") // User ID (Simulasi)
   const [currentUserBusinessId, setCurrentUserBusinessId] = useState<string | null>(null)
   const [isContextLoading, setIsContextLoading] = useState(true) // Tambahkan state loading
+  const USER_TOKEN_KEY = 'token';
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const token = localStorage.getItem(USER_TOKEN_KEY);
 
-  // Fungsi untuk mengambil data bisnis dari API
-  const fetchBusinesses = async () => {
+        if (token) {
+          // --- LOGIC PARSING TOKEN DITAMBAHKAN DI SINI ---
+          const decodedPayload = jwtDecode<JwtPayload>(token);
+          console.log(decodedPayload)
+          const userId = decodedPayload.id; // Ambil nilai 'userId' yang benar
+
+          if (userId) {
+            setCurrentUserId(userId);
+            console.log(`[AUTH] Extracted User ID from token: ${userId.substring(0, 10)}...`);
+          } else {
+            // Token ada, tapi tidak valid atau tidak memiliki userId
+            console.error("[AUTH] Token found but no 'userId' claim.");
+            setCurrentUserId(null);
+            setIsContextLoading(false);
+          }
+        } else {
+          console.log("[AUTH] No user token found in localStorage. Assuming logged out.");
+          setCurrentUserId(null);
+          setIsContextLoading(false);
+        }
+      } catch (error) {
+        // Tangani error decoding (misalnya, token invalid/expired)
+        console.error("Error reading or decoding token:", error);
+        setCurrentUserId(null);
+        setIsContextLoading(false);
+      }
+    }
+  }, [])
+
+  // Fungsi untuk mengambil data bisnis dari API. Sekarang menerima userId.
+  const fetchBusinesses = async (userId: string | null = currentUserId) => {
+    if (!userId) {
+      console.warn("Cannot fetch businesses: User ID is null.");
+      setBusinesses([]);
+      setIsContextLoading(false);
+      return;
+    }
+
     setIsContextLoading(true);
     try {
-      const res = await fetch(BASE_URL_BUSINESS)
+      // Modifikasi URL untuk menyertakan parameter query userId
+      const url = `${BASE_URL_BUSINESS}?userId=${userId}`
+      const res = await fetch(url)
+
       if (!res.ok) throw new Error("Gagal fetch data bisnis")
       const data: Business[] = await res.json()
 
       setBusinesses(data)
       // Tetapkan ID bisnis pertama sebagai default user (jika belum diset)
-      if (!currentUserBusinessId) {
-        setCurrentUserBusinessId(data[0]?.id || null)
+      if (!currentUserBusinessId && data.length > 0) {
+        setCurrentUserBusinessId(data[0].id)
+      } else if (data.length === 0) {
+        setCurrentUserBusinessId(null);
       }
     } catch (error) {
       console.error("Error fetching businesses:", error)
@@ -159,19 +215,17 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
   // Effect untuk menjalankan fetch saat komponen di-mount
   useEffect(() => {
-    fetchBusinesses()
-  }, [])
+    // Jalankan fetch dengan ID User saat ini
+    fetchBusinesses(currentUserId)
+  }, [currentUserId]) // Re-run fetch jika User ID berubah (misal: setelah login)
 
   // FUNGSI BARU UNTUK MENCARI DI STATE
   const getBusinessById = (id: string): Business | undefined => {
-    // Karena kita sudah memiliki semua data di state `businesses`, kita cari di sini.
-    // Jika data bisnis terlalu besar, ini harus menggunakan `apiFetchBusinessById` yang memanggil backend.
     return businesses.find(b => b.id === id);
   }
 
 
   // ... (Semua fungsi CRUD Business dan Product lainnya tetap sama) ...
-  // ... (addBusiness, updateBusiness, deleteBusiness, addProduct, updateProduct, deleteProduct) ...
   const addBusiness = (business: Business) => {
     setBusinesses(prev => [...prev, business])
   }
@@ -254,9 +308,10 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         addProduct,
         updateProduct,
         deleteProduct,
-        fetchBusinesses,
-        getBusinessById, // FUNGSI BARU DI EXPOSE
-        isContextLoading, // EXPOSE LOADING STATE
+        // Expose fetchBusinesses tanpa argumen (menggunakan currentUserId internal)
+        fetchBusinesses: () => fetchBusinesses(currentUserId),
+        getBusinessById,
+        isContextLoading,
       }}
     >
       {children}

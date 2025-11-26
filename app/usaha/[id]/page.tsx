@@ -37,8 +37,6 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
-  console.log(business)
-
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header Image */}
@@ -157,7 +155,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
                 </div>
                 <Button asChild className="w-full mt-6 bg-green-600 hover:bg-green-700">
                   <a
-                    href={`https://wa.me/${business.phone.replace(/^0/, "62").replace(/[^0-9]/g, "")}`}
+                    href={`https://wa.me/${business?.phone?.replace(/^0/, "62").replace(/[^0-9]/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

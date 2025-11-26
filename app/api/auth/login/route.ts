@@ -1,13 +1,12 @@
 // /app/api/auth/login/route.ts (Versi yang Ditingkatkan)
 
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 // Gunakan instance Prisma yang sudah ada, atau buat jika Anda tidak menggunakan "@/lib/prisma"
 // (Diasumsikan Anda menggunakan PrismaClient jika "@/lib/prisma" tidak didefinisikan)
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma" // gunakan singleton prisma
 
 export async function POST(req: Request) {
   try {

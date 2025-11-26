@@ -15,7 +15,9 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   try {
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { business: true } // Sertakan detail bisnis
+      include: {
+        business: true
+      } // Sertakan detail bisnis
     })
 
     if (!product) {

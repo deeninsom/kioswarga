@@ -3,10 +3,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client" // Gunakan import ini jika "@/lib/prisma" tidak ada
 import bcrypt from "bcryptjs"
+import { prisma } from "@/lib/prisma" // gunakan singleton prisma
 
 // Gunakan instance Prisma jika "@/lib/prisma" adalah import yang benar, 
 // atau buat instance baru jika Anda tidak memiliki file prisma terpisah:
-const prisma = new PrismaClient()
 
 export async function POST(req: NextRequest) {
   try {

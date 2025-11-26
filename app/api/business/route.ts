@@ -1,15 +1,42 @@
 // /app/api/business/route.ts
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma" // gunakan singleton prisma
 
 // =========================================================
 // GET: Mengambil daftar semua Business (beserta produknya)
 // =========================================================
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // 1. Dapatkan parameter query dari URL
+    const { searchParams } = new URL(req.url)
+    const userId = searchParams.get('userId')
+
+    // 2. Tentukan kondisi filter
+    // Jika userId tersedia, kita akan memfilter bisnis berdasarkan ownerId (atau relasi owner)
+    const whereCondition = userId
+      ? {
+        // Asumsi: Skema Prisma memiliki field ownerId di Business
+        // ATAU relasi 'owner' yang dapat difilter seperti:
+        owner: {
+          id: userId
+        }
+      }
+      : {} // Jika tidak ada userId, tampilkan semua (jika ini yang Anda inginkan, jika tidak, kembalikan 400)
+
+    // Jika Anda ingin memastikan bahwa data hanya ditampilkan jika ada userId:
+    // if (!userId) {
+    //   return NextResponse.json(
+    //     { error: "Parameter userId wajib diisi" },
+    //     { status: 400 }
+    //   )
+    // }
+
+    // 3. Query Prisma dengan kondisi filter
     const businesses = await prisma.business.findMany({
+      where: whereCondition,
       include: {
         products: true,
+        // Asumsi: 'owner' adalah relasi dari Business ke User
         owner: {
           select: { id: true, name: true, email: true }
         }

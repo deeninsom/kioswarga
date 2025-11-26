@@ -5,3 +5,4 @@ node_modules
 /lib/generated/prisma
 .next
 pnpm-lock.yaml
+package.lock.json
