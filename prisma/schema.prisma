@@ -1,0 +1,73 @@
+// prisma/schema.prisma (DIPERBARUI)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Model USER: Owner dari Business (Foreign Key ada di sini)
+model User {
+  id       String @id @default(uuid()) // <--- DIGANTI KE uuid()
+  name     String
+  email    String @unique
+  password String
+
+  // Relasi 1:1 ke Model Business.
+  business   Business? @relation(fields: [businessId], references: [id], name: "UserToBusiness")
+  businessId String?   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model BUSINESS: Detail UMKM
+model Business {
+  id String @id @default(uuid()) // <--- DIGANTI KE uuid()
+
+  // Informasi Dasar
+  name            String
+  category        String?
+  description     String?
+  longDescription String?
+
+  // Status dan Kontak
+  address      String?
+  phone        String?
+  location     String?
+  openingHours String?
+  isOpen       Boolean @default(true)
+
+  // Media
+  logo  String?
+  image String?
+
+  // Relasi ke User (Owner) - Field yang menunjuk balik
+  owner User? @relation(name: "UserToBusiness")
+
+  // Relasi 1:N ke Product
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Model PRODUCT: Relasi N:1 ke Business
+model Product {
+  id          String  @id @default(uuid()) // <--- DIGANTI KE uuid()
+  name        String
+  description String?
+  price       Int
+  image       String?
+
+  // Relasi N:1 ke Business
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
